@@ -22,6 +22,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
+<!-- Génération PDF réelle (export téléchargeable, indépendant de l'impression) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <style>
 /* ============================================================
    CAHIER JOURNAL — FLE  ·  Assistant de préparation
@@ -358,15 +362,30 @@ dialog::backdrop{background:rgba(60,45,65,.5);backdrop-filter:blur(3px);}
   .sel, .cust, .cell-in, .cell-area, .auth-input { font-size: 16px !important; } /* Stop Zoom iOS */
   
   .mgrid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Actions de la journée (Aperçu du jour / Ajouter / Dupliquer / Supprimer) :
+     icônes seules sur petit écran pour éviter tout débordement ou retour à la ligne disgracieux.
+     Le libellé reste lisible par les lecteurs d'écran via aria-label. */
+  .day-head { padding: 12px 14px; }
+  .day-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
+  .day-actions .btn { padding: 9px; min-width: 40px; }
+  .hid-mob { display: none; }
+
+  /* Le toast ne doit jamais être masqué par une barre d'action fixée en bas */
+  .toast { bottom: 96px; }
   
   /* Modale Plein Écran */
   dialog { max-width: 100%; width: 100%; height: 100%; max-height: 100%; border-radius: 0; margin: 0; }
   .modal-body { max-height: calc(100vh - 150px); padding: 16px; }
   
-  /* Protéger l'Aperçu A4 sur Mobile */
-  #preview-mode { padding: 10px 10px 100px 10px !important; }
-  #preview-content { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px; }
-  .doc-page { min-width: 780px; padding: 30px; } /* Force la largeur A4 */
+  /* Aperçu sur mobile : lecture confortable, sans scroll horizontal.
+     Le format A4 strict est conservé séparément pour l'impression et l'export PDF (voir plus bas). */
+  #preview-mode { padding: 10px 10px 110px 10px !important; }
+  #preview-content { overflow-x: hidden; }
+  .doc-page { min-width: 0; width: 100%; padding: 22px 16px; }
+  .doc-title { font-size: 36px; }
+  .doc-grid-2 { grid-template-columns: 1fr; gap: 10px; }
+  .doc-session { padding: 16px; }
   .preview-toolbar {
     position: fixed; bottom: 0; left: 0; right: 0; top: auto;
     margin: 0; border-radius: 0; z-index: 100; padding: 12px 10px 24px;
@@ -390,6 +409,9 @@ dialog::backdrop{background:rgba(60,45,65,.5);backdrop-filter:blur(3px);}
     page-break-after: always; break-after: page;
   }
   .doc-page:last-child { page-break-after: avoid; break-after: avoid; }
+  /* Le format A4 imprimé reste toujours celui d'origine, quel que soit l'appareil utilisé */
+  .doc-title { font-size: 54px !important; }
+  .doc-grid-2 { grid-template-columns: 1fr 1fr !important; gap: 12px 20px !important; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   .doc-header { page-break-after: avoid; break-after: avoid; }
   .doc-session { page-break-inside: avoid; break-inside: avoid; border: 1.5px solid var(--rose-300) !important; margin-bottom: 8mm; }
@@ -709,10 +731,10 @@ function dayHTML(d){
       <div class="day-date"><span class="lbl">Journée du</span>
         <input type="date" data-day="${d.id}" data-field="date" value="${esc(d.date)}" aria-label="Date"></div>
       <div class="day-actions">
-        <button class="btn blue sm" data-action="preview-day" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span class="hid-mob">Aperçu du jour</span></button>
-        <button class="btn ghost sm" data-action="add-row" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="hid-mob">Ajouter séance</span></button>
-        <button class="btn ghost sm" data-action="dup-day" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="hid-mob">Dupliquer</span></button>
-        <button class="btn ghost sm" data-action="del-day" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg><span class="hid-mob">Supprimer</span></button>
+        <button class="btn blue sm" data-action="preview-day" data-day="${d.id}" aria-label="Aperçu du jour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span class="hid-mob">Aperçu du jour</span></button>
+        <button class="btn ghost sm" data-action="add-row" data-day="${d.id}" aria-label="Ajouter une séance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="hid-mob">Ajouter séance</span></button>
+        <button class="btn ghost sm" data-action="dup-day" data-day="${d.id}" aria-label="Dupliquer la journée"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="hid-mob">Dupliquer</span></button>
+        <button class="btn ghost sm" data-action="del-day" data-day="${d.id}" aria-label="Supprimer la journée"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg><span class="hid-mob">Supprimer</span></button>
       </div>
     </div>
     <div class="table-wrap"><table class="grid">
@@ -1009,9 +1031,46 @@ function saveModal(){
 /* ============================================================
    10. IMPRESSION / PDF / TOAST
    ============================================================ */
-function exportPDF(){
-  toast('Choisissez "Enregistrer au format PDF" dans l\'impression','info',3500);
-  setTimeout(()=>window.print(),800);
+async function exportPDF(){
+  const pages = Array.from(document.querySelectorAll('#preview-content .doc-page'));
+  if(!pages.length){ toast('Aucune journée à exporter','info'); return; }
+  if(typeof html2canvas==='undefined' || !window.jspdf){
+    toast('Génération PDF indisponible hors-ligne, utilisez Imprimer','info',3500);
+    return;
+  }
+  const btn = document.querySelector('[data-action="pdf-preview"]');
+  if(btn) btn.disabled = true;
+  toast('Génération du PDF en cours…','info',4000);
+  try{
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p','mm','a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    for(let i=0;i<pages.length;i++){
+      const canvas = await html2canvas(pages[i], {
+        scale:2, useCORS:true, backgroundColor:'#ffffff',
+        windowWidth:900, /* force la mise en page « desktop » A4, même sur mobile */
+        onclone:(clonedDoc, el)=>{ el.style.boxShadow='none'; el.style.border='none'; el.style.margin='0'; el.style.borderTop='none'; }
+      });
+      const imgData = canvas.toDataURL('image/jpeg',0.95);
+      let imgHeight = (canvas.height*pageWidth)/canvas.width;
+      if(i>0) pdf.addPage();
+      if(imgHeight<=pageHeight){
+        pdf.addImage(imgData,'JPEG',0,0,pageWidth,imgHeight);
+      }else{
+        /* Contenu d'une journée plus long qu'une page A4 : on l'ajuste proprement sans le couper au milieu. */
+        pdf.addImage(imgData,'JPEG',0,0,pageWidth,imgHeight,'',undefined);
+      }
+    }
+    const annee=(state.schoolYear||'').replace(/[^\d]/g,'-').replace(/^-+|-+$/g,'')||todayISO();
+    pdf.save(`cahier-journal-${annee}.pdf`);
+    toast('PDF téléchargé','ok');
+  }catch(err){
+    console.error('Erreur export PDF',err);
+    toast('Erreur lors de la génération du PDF','info',3500);
+  }finally{
+    if(btn) btn.disabled = false;
+  }
 }
 let toastTimer=null;
 function toast(msg,kind='ok',ms=2200){
