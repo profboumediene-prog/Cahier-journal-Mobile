@@ -1031,6 +1031,25 @@ function saveModal(){
 /* ============================================================
    10. IMPRESSION / PDF / TOAST
    ============================================================ */
+/* Compacte la mise en page UNIQUEMENT pour la capture PDF (n'affecte jamais l'aperçu écran
+   ni l'impression navigateur) : réduit les marges/espacements pour qu'une journée tienne sur
+   une page A4 sans toucher significativement à la taille du texte. */
+function compactPageForPDF(el){
+  el.style.boxShadow='none'; el.style.border='none'; el.style.borderTop='none'; el.style.margin='0';
+  el.style.boxSizing='border-box'; el.style.padding='26px 32px';
+  const header=el.querySelector('.doc-header'); if(header) header.style.marginBottom='16px';
+  const titleWrap=el.querySelector('.doc-title-wrapper'); if(titleWrap) titleWrap.style.marginBottom='8px';
+  const divider=el.querySelector('.doc-divider'); if(divider) divider.style.margin='0 auto 10px';
+  el.querySelectorAll('.doc-session').forEach(s=>{ s.style.padding='15px 18px'; s.style.marginBottom='12px'; });
+  el.querySelectorAll('.doc-time').forEach(t=>{ t.style.marginBottom='10px'; t.style.paddingBottom='6px'; });
+  el.querySelectorAll('.doc-grid-2').forEach(g=>{ g.style.marginBottom='10px'; g.style.gap='8px 16px'; });
+  el.querySelectorAll('.doc-grid-1').forEach(g=>{ g.style.marginBottom='10px'; g.style.gap='7px'; });
+  el.querySelectorAll('.doc-section-title').forEach(t=>{ t.style.margin='12px 0 8px'; });
+  el.querySelectorAll('.doc-item').forEach(it=>{ it.style.fontSize='13.5px'; });
+  el.querySelectorAll('.doc-block').forEach(b=>{ b.style.padding='10px 14px'; b.style.fontSize='13.5px'; });
+  const bilan=el.querySelector('.doc-bilan'); if(bilan){ bilan.style.marginTop='16px'; bilan.style.padding='14px'; }
+}
+
 async function exportPDF(){
   const pages = Array.from(document.querySelectorAll('#preview-content .doc-page'));
   if(!pages.length){ toast('Aucune journée à exporter','info'); return; }
@@ -1044,22 +1063,36 @@ async function exportPDF(){
   try{
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p','mm','a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+    const PAGE_W = pdf.internal.pageSize.getWidth();   // 210 mm
+    const PAGE_H = pdf.internal.pageSize.getHeight();  // 297 mm
+    const PX_PER_MM = 96/25.4;
+    const A4_PX_W = Math.round(PAGE_W*PX_PER_MM);      // largeur A4 en px CSS (~794px)
+
     for(let i=0;i<pages.length;i++){
+      /* Chaque .doc-page (= une journée) est capturé SEUL, indépendamment des autres. */
       const canvas = await html2canvas(pages[i], {
         scale:2, useCORS:true, backgroundColor:'#ffffff',
-        windowWidth:900, /* force la mise en page « desktop » A4, même sur mobile */
-        onclone:(clonedDoc, el)=>{ el.style.boxShadow='none'; el.style.border='none'; el.style.margin='0'; el.style.borderTop='none'; }
+        windowWidth:A4_PX_W, /* force la largeur exacte d'une page A4, même sur mobile */
+        onclone:(clonedDoc, el)=>{
+          el.style.width=A4_PX_W+'px'; el.style.maxWidth=A4_PX_W+'px'; el.style.minWidth='0';
+          compactPageForPDF(el);
+        }
       });
       const imgData = canvas.toDataURL('image/jpeg',0.95);
-      let imgHeight = (canvas.height*pageWidth)/canvas.width;
-      if(i>0) pdf.addPage();
-      if(imgHeight<=pageHeight){
-        pdf.addImage(imgData,'JPEG',0,0,pageWidth,imgHeight);
+      const fullHmm = (canvas.height*PAGE_W)/canvas.width;
+
+      if(i>0) pdf.addPage(); /* une nouvelle page A4 par journée — jamais de partage entre 2 pages */
+
+      if(fullHmm<=PAGE_H){
+        /* Tient sur la page : placé pleine largeur, aligné en haut. */
+        pdf.addImage(imgData,'JPEG',0,0,PAGE_W,fullHmm);
       }else{
-        /* Contenu d'une journée plus long qu'une page A4 : on l'ajuste proprement sans le couper au milieu. */
-        pdf.addImage(imgData,'JPEG',0,0,pageWidth,imgHeight,'',undefined);
+        /* Cas rare (journée très chargée) : on réduit l'ensemble pour qu'elle tienne
+           entièrement sur SA page plutôt que de la couper entre deux pages. */
+        const scale=PAGE_H/fullHmm;
+        const drawW=PAGE_W*scale, drawH=PAGE_H;
+        const offsetX=(PAGE_W-drawW)/2;
+        pdf.addImage(imgData,'JPEG',offsetX,0,drawW,drawH);
       }
     }
     const annee=(state.schoolYear||'').replace(/[^\d]/g,'-').replace(/^-+|-+$/g,'')||todayISO();
