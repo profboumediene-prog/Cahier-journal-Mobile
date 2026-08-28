@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Cahier Journal — FLE</title>
+
+<!-- PWA Meta Tags -->
+<meta name="theme-color" content="#FBF7F9" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Cahier FLE" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+
+<!-- SDKs Firebase Compat v9+ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+/* ============================================================
+   CAHIER JOURNAL — FLE  ·  Assistant de préparation
+   ============================================================ */
+
+:root{
+  --ink:#20263A;         
+  --ink-2:#3B455C;       
+  --muted:#697388;       
+  --placeholder:#9AA3B4;
+
+  --rose-700:#B23A5D;  --rose-600:#C24E70;
+  --rose-500:#D66A88;  --rose-300:#E9A9BD;  --rose-200:#F2CBD8;
+  --rose-100:#FAE6EC;  --rose-50:#FDF4F7;
+
+  --blue-700:#284A6E;  --blue-600:#345B82;  --blue-300:#8FB2D6;
+  --blue-100:#DCE8F5;  --blue-50:#F1F6FC;
+
+  --page:#FBF7F9;
+  --card:#FFFFFF;
+  --line:#E5D7DE;        
+  --field-bg:#FFFFFF;
+  --field-bd:#CBD7E6;    
+  --field-bd-strong:#B7C6DA;
+
+  --ok:#2F855A;  --ok-bg:#E9F6EF;  --ok-bd:#BEE3CF;
+  --amber:#B26B08; --amber-bg:#FBF1DF; --amber-bd:#EAD3A3;
+
+  --radius:16px; --radius-sm:11px;
+  --shadow:0 12px 34px -20px rgba(80,50,70,.42);
+  --shadow-soft:0 3px 12px -7px rgba(80,50,70,.32);
+  --shadow-doc:0 15px 40px -15px rgba(0,0,0,.15);
+  --ff-script:'Parisienne','Segoe Script',cursive;
+  --ff:'Quicksand','Segoe UI',system-ui,-apple-system,sans-serif;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0; -webkit-tap-highlight-color: transparent;}
+body{
+  font-family:var(--ff);color:var(--ink);background:var(--page);
+  line-height:1.5;-webkit-font-smoothing:antialiased;font-weight:500;
+}
+
+/* ÉCRAN D'AUTHENTIFICATION */
+#auth-screen {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--page);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.auth-card {
+  background: #fff; border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 35px 30px;
+  max-width: 420px; width: 100%; text-align: center;
+  box-shadow: var(--shadow-doc);
+  border-top: 6px solid var(--rose-500);
+}
+.auth-card h2 {
+  font-family: var(--ff-script); font-size: 38px; color: var(--blue-700);
+  margin: 0 0 8px; font-weight: 400;
+}
+.auth-card p { font-size: 13.5px; color: var(--ink-2); margin-bottom: 22px; }
+.auth-input {
+  width: 100%; font-size: 16px; text-align: left; /* 16px empêche le zoom iOS */
+  padding: 14px; border: 1px solid var(--field-bd); border-radius: var(--radius-sm);
+  outline: none; font-family: var(--ff); font-weight: 600; color: var(--ink);
+  margin-bottom: 12px; transition: .2s; background: var(--field-bg);
+  min-height: 48px; /* Cible tactile */
+}
+.auth-input:focus { border-color: var(--rose-500); box-shadow: 0 0 0 3px var(--rose-100); background: #fff; }
+
+.auth-error {
+  display: none; color: #c53030; background: #fff5f5; border: 1px solid #feb2b2;
+  border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13.5px;
+  font-weight: 700; margin-bottom: 12px; text-align: center;
+}
+
+.decor{position:fixed;pointer-events:none;z-index:0;opacity:.30;}
+.decor.tl{top:-6px;left:-4px;width:118px;}
+.decor.br{bottom:-10px;right:-4px;width:118px;}
+
+.app{position:relative;z-index:1;max-width:1140px;margin:0 auto;padding:0 18px 90px;}
+
+/* ---------- En-tête ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;background:rgba(251,247,249,.92);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  margin:0 -18px 16px;padding:14px 18px 12px;
+}
+.brand{display:flex;align-items:center;gap:13px;flex-wrap:wrap;}
+.brand h1{
+  margin:0;font-family:var(--ff-script);font-weight:400;line-height:1;
+  font-size:clamp(30px,4.3vw,44px);color:var(--blue-700);
+}
+.brand .tag{
+  display:inline-flex;align-items:center;gap:5px;font-weight:700;letter-spacing:.13em;
+  font-size:11.5px;color:#fff;background:linear-gradient(135deg,var(--rose-500),var(--rose-600));
+  padding:5px 11px;border-radius:999px;
+}
+.brand .subtitle{color:var(--ink-2);font-size:13.5px;font-weight:600;flex:1;min-width:170px;}
+.year{
+  display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--field-bd);
+  border-radius:999px;padding:5px 8px 5px 13px;color:var(--blue-700);font-weight:600;font-size:14px;
+  min-height: 40px;
+}
+.year input{border:none;background:transparent;font:inherit;color:var(--ink);width:96px;text-align:center;font-weight:700;}
+.year input:focus{outline:none;background:var(--blue-50);border-radius:8px;}
+.status{
+  margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;
+  padding:6px 12px;border-radius:999px;border:1px solid transparent;transition:.25s;white-space:nowrap;
+}
+.status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
+.status.saved{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-bd);}
+.status.dirty{color:var(--amber);background:var(--amber-bg);border-color:var(--amber-bd);}
+
+/* ---------- Barre d'actions Desktop ---------- */
+.toolbar{
+  position:sticky;top:63px;z-index:18;display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  background:rgba(251,247,249,.9);backdrop-filter:blur(6px);padding:8px 0 14px;margin-bottom:4px;
+}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;
+  font-family:var(--ff);font-weight:600;font-size:15px;border-radius:12px;
+  padding:10px 16px;border:1px solid var(--field-bd);background:#fff;
+  color:var(--ink);transition:transform .12s,box-shadow .2s,background .2s,border-color .2s;
+  box-shadow:var(--shadow-soft);
+  min-height: 46px; /* Touch target */
+}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
+.btn:active{transform:translateY(0);}
+.btn svg{width:18px;height:18px;flex:none;}
+.btn.primary{background:linear-gradient(135deg,var(--rose-500),var(--rose-600));color:#fff;border-color:transparent;}
+.btn.blue{background:linear-gradient(135deg,var(--blue-600),var(--blue-700));color:#fff;border-color:transparent;}
+.btn.ghost{background:#fff;color:var(--blue-700);border-color:var(--blue-100);}
+.btn.sm{padding:7px 11px;font-size:14px;border-radius:10px;min-height:40px;}
+.btn.icononly{padding:10px;border-radius:10px;}
+
+/* ---------- Carte journée ---------- */
+.day{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);margin-bottom:24px;overflow:hidden;border-top:4px solid var(--rose-300);
+}
+.day-head{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 18px;
+  border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--rose-50),#fff);
+}
+.day-date{display:flex;align-items:center;gap:9px;}
+.day-date .lbl{font-family:var(--ff-script);font-size:25px;color:var(--blue-700);line-height:1;}
+.day-date input[type=date]{
+  font:inherit;font-weight:700;color:var(--ink);border:1px solid var(--field-bd);background:#fff;
+  border-radius:10px;padding:10px 14px; min-height: 44px; /* Touch target */
+}
+.day-date input[type=date]:focus{outline:2px solid var(--rose-200);outline-offset:1px;}
+.day-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;}
+
+/* ---------- Tableau ---------- */
+.table-wrap{padding:6px 10px 2px;overflow-x:auto;}
+table.grid{width:100%;border-collapse:collapse;}
+table.grid thead th{
+  font-weight:700;color:var(--blue-700);text-align:left;font-size:13px;letter-spacing:.02em;
+  padding:10px;border-bottom:2px solid var(--rose-200);white-space:nowrap;
+}
+table.grid thead th .th-in{display:inline-flex;align-items:center;gap:7px;}
+table.grid thead th svg{width:15px;height:15px;color:var(--rose-500);}
+table.grid tbody td{padding:7px 8px;vertical-align:top;border-bottom:1px dashed var(--blue-100);}
+
+.sel,.cust,.cell-in,.cell-area{
+  width:100%;font:inherit;font-weight:500;color:var(--ink);border:1px solid var(--field-bd);
+  background:var(--field-bg);border-radius:9px;padding:10px 12px;transition:.15s;
+  min-height: 44px; /* Touch target vital pour mobile */
+  font-size: 15px;
+}
+.sel{cursor:pointer;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23345B82' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;}
+.cell-area,.cust{line-height:1.45;}
+textarea.cust{resize:vertical;min-height:50px;}
+.sel:hover,.cust:hover,.cell-in:hover,.cell-area:hover{border-color:var(--field-bd-strong);}
+.sel:focus,.cust:focus,.cell-in:focus,.cell-area:focus{
+  outline:none;border-color:var(--rose-500);box-shadow:0 0 0 3px var(--rose-100);background:#fff;
+}
+.sel:invalid,.sel option[disabled]{color:var(--placeholder);}
+.combo{display:flex;flex-direction:column;gap:6px;}
+.cust[hidden]{display:none;}
+::placeholder{color:var(--placeholder);}
+
+td.col-heure{width:132px;} td.col-classe{width:186px;}
+td.col-remarques{width:230px;} td.col-acts{min-width:210px;} td.col-tools{width:90px;text-align:right;}
+
+.detail-badge{
+  display:inline-flex;align-items:center;gap:5px;margin-top:7px;font-size:12px;font-weight:700;
+  color:var(--blue-700);background:var(--blue-50);border:1px solid var(--blue-100);border-radius:999px;
+  padding:6px 12px;cursor:pointer;transition:.15s;
+}
+.detail-badge.on{color:#fff;background:linear-gradient(135deg,var(--rose-500),var(--rose-600));border-color:transparent;}
+
+.row-tools{display:inline-flex;gap:6px;}
+.tool{border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px;cursor:pointer;color:var(--muted);transition:.15s;line-height:0;}
+.tool svg{width:18px;height:18px;}
+.add-row{margin:10px 10px 16px;}
+
+/* ---------- Bilan & Suggestions ---------- */
+.bilan{border-top:1px solid var(--line);padding:13px 18px 17px;background:linear-gradient(180deg,#fff,var(--blue-50));}
+.bilan summary{cursor:pointer;font-weight:700;color:var(--blue-700);list-style:none;display:flex;align-items:center;gap:8px;user-select:none; min-height:44px;}
+.bilan summary::-webkit-details-marker{display:none;}
+.bilan summary svg{width:18px;height:18px;color:var(--rose-500);transition:.2s;}
+.bilan[open] summary svg.chev{transform:rotate(90deg);}
+.bilan textarea{width:100%;margin-top:10px;min-height:80px;font:inherit;font-weight:500;color:var(--ink);line-height:1.5;border:1px solid var(--field-bd);border-radius:12px;padding:11px 13px;background:#fff;resize:vertical;}
+.sugg-bar{display: flex; gap: 8px; margin-top: 14px; margin-bottom: 2px; align-items: center;}
+.sugg-bar .sel {flex: 1; padding: 10px 12px;}
+
+/* ---------- État vide ---------- */
+.empty{text-align:center;padding:60px 20px;color:var(--ink-2);background:#fff;border:1px dashed var(--rose-200);border-radius:var(--radius);}
+.empty h2{font-family:var(--ff-script);font-size:36px;color:var(--blue-700);margin:0 0 10px;font-weight:400;}
+
+/* ---------- Modale : assistant de préparation ---------- */
+dialog{border:none;border-radius:20px;padding:0;max-width:680px;width:calc(100% - 32px);box-shadow:0 30px 70px -25px rgba(70,45,65,.55);color:var(--ink);}
+dialog::backdrop{background:rgba(60,45,65,.5);backdrop-filter:blur(3px);}
+.modal-head{display:flex;align-items:center;gap:11px;padding:17px 22px;background:linear-gradient(135deg,var(--rose-100),var(--blue-100));border-bottom:1px solid var(--line);}
+.modal-head h3{margin:0;font-size:18px;color:var(--blue-700);font-weight:700;}
+.modal-head .sub{margin:4px 0 0;font-size:13px;color:var(--ink-2);font-weight:600;}
+.modal-head .x{margin-left:auto;align-self:flex-start;}
+.modal-body{padding:20px 22px;max-height:68vh;overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.msec{margin-bottom:20px;}
+.msec h4{margin:0 0 12px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--rose-600);display:flex;align-items:center;gap:7px;}
+.msec h4 .ln{flex:1;height:1px;background:var(--line);}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.fld{display:flex;flex-direction:column;gap:6px;}
+.fld.wide{grid-column:1 / -1;}
+.fld>label{font-size:13px;font-weight:700;color:var(--blue-700);}
+.modal-foot{display:flex;gap:12px;justify-content:flex-end;padding:16px 22px 24px;border-top:1px solid var(--line); background:#fff;}
+
+/* ---------- Toast ---------- */
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:var(--blue-700);color:#fff;font-weight:600;font-size:14px;padding:12px 20px;border-radius:12px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.3s;z-index:1000;display:flex;align-items:center;gap:10px;max-width:calc(100% - 40px);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast svg{width:18px;height:18px;flex:none;}
+
+/* ============================================================
+   APERÇU / CAHIER JOURNAL UNIQUE (Ecran + Impression)
+   ============================================================ */
+#preview-mode{
+  display:none;
+  padding: 20px 18px 90px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.preview-toolbar{
+  position: sticky; top: 10px; z-index: 50;
+  display: flex; gap: 12px; justify-content: center; flex-wrap:wrap;
+  background: rgba(251,247,249,.95); backdrop-filter: blur(10px);
+  padding: 12px; border-radius: 16px; border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft); margin-bottom: 25px;
+}
+.doc-page{
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--shadow-doc);
+  padding: 40px 45px;
+  color: var(--ink);
+  font-family: var(--ff);
+  border-top: 6px solid var(--rose-300);
+  margin-bottom: 30px;
+}
+.doc-page:first-child { margin-top: 0; }
+
+.doc-header { text-align: center; margin-bottom: 35px; padding-top: 10px; }
+.doc-title-wrapper { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 18px; }
+.doc-title { font-family: var(--ff-script); color: var(--blue-700); font-size: 54px; font-weight: 400; margin: 0; line-height: 1; }
+.doc-subtitle { font-family: var(--ff); font-size: 14px; font-weight: 700; color: var(--rose-600); letter-spacing: 0.1em; text-transform: uppercase; background: var(--rose-50); padding: 4px 10px; border-radius: 999px; display: inline-block; margin-left: 10px; transform: translateY(-12px); border: 1px solid var(--rose-100); }
+.doc-divider { height: 1.5px; width: 140px; background: var(--rose-200); margin: 0 auto 18px; }
+.doc-decor { color: var(--rose-400); width: 28px; height: 28px; transform: translateY(-6px); }
+.doc-meta { font-size: 17.5px; font-weight: 600; color: var(--ink); font-family: var(--ff); }
+
+.doc-session{ border: 1px solid var(--line); border-radius: 12px; padding: 25px; margin-bottom: 30px; background: #fff; }
+.doc-time{ font-size: 19px; font-weight: 700; color: var(--rose-600); border-bottom: 1px dashed var(--rose-300); padding-bottom: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+.doc-time::before { content: ""; display: inline-block; width: 12px; height: 12px; background: var(--rose-300); border-radius: 50%; }
+.doc-grid-2{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-bottom: 20px; }
+.doc-grid-1{ display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.doc-section-title{ font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blue-700); background: var(--blue-50); padding: 7px 12px; border-radius: 6px; margin: 25px 0 15px; border-left: 3px solid var(--blue-300); }
+.doc-item{ font-size: 15px; line-height: 1.5; }
+.doc-item strong{ color: var(--blue-700); font-weight: 700; margin-right: 5px; }
+.doc-block{ background: var(--rose-50); border-left: 3px solid var(--rose-300); padding: 14px 18px; border-radius: 6px; font-size: 15px; white-space: pre-wrap; line-height: 1.55; color: var(--ink); }
+.doc-empty-val{ color: var(--placeholder); letter-spacing: 2px; }
+.doc-bilan { background: var(--blue-50); border: 1px solid var(--blue-100); padding: 20px; border-radius: 12px; margin-top: 40px; }
+.doc-bilan-title { font-weight: 700; color: var(--blue-700); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+
+/* ============================================================
+   RESPONSIVE MOBILE (SMARTPHONE)
+   ============================================================ */
+@media (max-width:780px){
+  /* En-tête simplifié */
+  .brand h1 { font-size: 28px; }
+  .brand .subtitle { display:none; } 
+  .status { font-size: 11px; padding: 4px 10px; }
+
+  /* Barre de navigation fixée en bas (Ergonomie Mobile App) */
+  .toolbar {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0;
+    margin: 0; padding: 10px 8px 24px; z-index: 100;
+    background: rgba(251,247,249,0.96); backdrop-filter: blur(12px);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; gap: 8px;
+    border-radius: 0;
+  }
+  .app { padding-bottom: 100px; padding-top: 10px; }
+  
+  /* Boutons de la barre en bas format application */
+  .toolbar .btn {
+    flex-direction: column; gap: 4px; padding: 10px 4px; 
+    font-size: 12px; flex: 1; border-radius: 12px;
+  }
+  .toolbar .btn svg { width: 22px; height: 22px; margin: 0; }
+
+  /* Transformation du tableau en cartes responsives */
+  table.grid thead { display:none; }
+  table.grid, table.grid tbody, table.grid tr, table.grid td { display:block; width:100%; }
+  table.grid tbody tr {
+    border: 1px solid var(--line); border-radius: 14px; margin: 0 0 16px;
+    padding: 12px; background: linear-gradient(180deg,#fff,var(--blue-50));
+  }
+  table.grid tbody td { border:none; padding: 8px 0; }
+  table.grid tbody td::before {
+    content: attr(data-label); display: block; font-size: 12px; font-weight: 700;
+    color: var(--rose-600); letter-spacing: .03em; margin-bottom: 6px;
+  }
+  
+  td.col-heure, td.col-classe, td.col-remarques { width: auto; }
+  td.col-tools { text-align: left; padding-top: 12px !important; border-top: 1px dashed var(--blue-100) !important; } 
+  td.col-tools::before { display: none; }
+  .row-tools { width: 100%; display: flex; gap: 8px; }
+  .row-tools .tool { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 48px;}
+  
+  .sel, .cust, .cell-in, .cell-area, .auth-input { font-size: 16px !important; } /* Stop Zoom iOS */
+  
+  .mgrid { grid-template-columns: 1fr; gap: 12px; }
+  
+  /* Modale Plein Écran */
+  dialog { max-width: 100%; width: 100%; height: 100%; max-height: 100%; border-radius: 0; margin: 0; }
+  .modal-body { max-height: calc(100vh - 150px); padding: 16px; }
+  
+  /* Protéger l'Aperçu A4 sur Mobile */
+  #preview-mode { padding: 10px 10px 100px 10px !important; }
+  #preview-content { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px; }
+  .doc-page { min-width: 780px; padding: 30px; } /* Force la largeur A4 */
+  .preview-toolbar {
+    position: fixed; bottom: 0; left: 0; right: 0; top: auto;
+    margin: 0; border-radius: 0; z-index: 100; padding: 12px 10px 24px;
+  }
+  .preview-toolbar .btn { flex: 1; font-size: 13px; padding: 12px 8px; }
+}
+
+/* ============================================================
+   IMPRESSION A4 STRICTE
+   ============================================================ */
+@media print{
+  body { background: #fff; }
+  .decor, .app, .preview-toolbar, .toast, dialog, #auth-screen { display: none !important; }
+  
+  #preview-mode { display: block !important; padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  #preview-content { overflow: visible !important; }
+  
+  .doc-page {
+    min-width: 100% !important; box-shadow: none !important; border: none !important;
+    padding: 0 !important; margin: 0 0 0 0 !important;
+    page-break-after: always; break-after: page;
+  }
+  .doc-page:last-child { page-break-after: avoid; break-after: avoid; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .doc-header { page-break-after: avoid; break-after: avoid; }
+  .doc-session { page-break-inside: avoid; break-inside: avoid; border: 1.5px solid var(--rose-300) !important; margin-bottom: 8mm; }
+  .doc-section-title { page-break-after: avoid; break-after: avoid; }
+  @page { size: A4; margin: 15mm; }
+}
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <h2>Cahier Journal</h2>
+    <p>Connectez-vous pour déverrouiller et synchroniser votre espace enseignant.</p>
+    <input type="email" id="email-input" class="auth-input" placeholder="Votre adresse email" />
+    <input type="password" id="pin-code" class="auth-input" placeholder="Mot de passe ou Code PIN" />
+    <div id="auth-error-msg" class="auth-error"></div>
+    <button class="btn primary" style="width:100%; justify-content:center; margin-top:8px;" onclick="validateAccess()">Connexion</button>
+  </div>
+</div>
+
+<svg class="decor tl" viewBox="0 0 120 120" aria-hidden="true"><g fill="none" stroke="#E9A9BD" stroke-width="2" stroke-linecap="round"><path d="M20 36c0-9 7-16 16-16s16 7 16 16" stroke="#8FB2D6"/><path d="M42 24c8-6 20-4 24 6M24 52c-6 8-4 20 6 24"/></g><g fill="#F2CBD8"><circle cx="32" cy="32" r="4.5"/><circle cx="46" cy="26" r="3"/><circle cx="26" cy="46" r="3"/></g></svg>
+<svg class="decor br" viewBox="0 0 120 120" aria-hidden="true"><g fill="none" stroke="#8FB2D6" stroke-width="2" stroke-linecap="round"><path d="M98 72c6 8 6 20-2 26M76 96c-8 4-20 2-24-8"/></g><g fill="#C9DCEE"><circle cx="90" cy="86" r="4.5"/><circle cx="78" cy="94" r="3"/><circle cx="98" cy="74" r="3"/></g></svg>
+
+<div class="app" id="app-view">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Cahier Journal</h1>
+      <span class="tag">✿ FLE</span>
+      <span class="subtitle">Français · Enseignement secondaire</span>
+      <span class="year">Année scolaire <input id="year" type="text" spellcheck="false" aria-label="Année scolaire" /></span>
+      <span id="status" class="status saved"><span class="dot"></span><span id="statusTxt">Enregistré</span></span>
+    </div>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="Actions">
+    <button class="btn primary" data-action="add-day">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nouvelle journée</button>
+    <button class="btn" data-action="save">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Enregistrer</button>
+    <button class="btn blue" data-action="preview-all">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Aperçu complet</button>
+  </div>
+
+  <main id="days"></main>
+  <p class="hint">Sauvegarde automatique synchronisée en temps réel via Firebase et conservée localement.</p>
+</div>
+
+<div id="preview-mode">
+  <div class="preview-toolbar">
+    <button class="btn" data-action="close-preview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>Retour
+    </button>
+    <button class="btn primary" data-action="print-preview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>Imprimer
+    </button>
+    <button class="btn blue" data-action="pdf-preview">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 18h4"/></svg>Exporter PDF
+    </button>
+  </div>
+  <div id="preview-content"></div>
+</div>
+
+<dialog id="modal">
+  <div class="modal-head">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#284A6E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <div>
+      <h3>Fiche de séance — assistant</h3>
+      <p class="sub">Choisissez classe → projet → séquence → séance pour obtenir les suggestions.</p>
+    </div>
+    <button class="btn ghost sm icononly x" data-action="close-modal" aria-label="Fermer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="modal-body" id="modalBody"></div>
+  <div class="modal-foot">
+    <button class="btn ghost" data-action="close-modal">Annuler</button>
+    <button class="btn primary" data-action="save-modal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Valider la fiche</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   ENREGISTREMENT PWA - SERVICE WORKER
+   ============================================================ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Registration failed', err));
+  });
+}
+
+/* ============================================================
+   1. CONFIGURATION FIREBASE & AUTHENTIFICATION
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCEs9ECiK8B5sBa5t-8ige1UipR2UeV_T0",
+  authDomain: "cahier-journal-26-27.firebaseapp.com",
+  projectId: "cahier-journal-26-27",
+  storageBucket: "cahier-journal-26-27.firebasestorage.app",
+  messagingSenderId: "640606456487",
+  appId: "1:640606456487:web:8444d7761c7cc15519a982",
+  measurementId: "G-QVFVEP32NS"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+const DEFAULT_PIN = "1234";
+
+function showAuthError(message) {
+  const errEl = document.getElementById('auth-error-msg');
+  if (errEl) { errEl.textContent = message; errEl.style.display = 'block'; }
+}
+function hideAuthError() {
+  const errEl = document.getElementById('auth-error-msg');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+}
+
+function validateAccess() {
+  hideAuthError();
+  const emailInput = document.getElementById('email-input');
+  const pinInput = document.getElementById('pin-code');
+  const email = emailInput ? emailInput.value.trim() : '';
+  const password = pinInput ? pinInput.value.trim() : '';
+  
+  if (!email || !password) {
+    showAuthError("Veuillez remplir tous les champs.");
+    return;
+  }
+  auth.signInWithEmailAndPassword(email, password)
+    .then((userCredential) => {
+      hideAuthError(); document.getElementById('auth-screen').style.display = 'none';
+      toast('Connexion réussie', 'ok'); syncWithFirebase(userCredential.user.uid);
+    })
+    .catch((error) => { checkPinFallback(password); });
+}
+
+function checkPinFallback(pinInput) {
+  const cleanPin = String(pinInput || '').trim();
+  const cleanDefaultPin = String(DEFAULT_PIN).trim();
+  if (cleanPin === cleanDefaultPin) {
+    hideAuthError(); document.getElementById('auth-screen').style.display = 'none';
+    toast('Accès autorisé', 'ok'); syncWithFirebase('global_user');
+  } else {
+    showAuthError("Adresse e-mail ou code d'accès incorrect.");
+  }
+}
+
+document.getElementById('pin-code').addEventListener('keypress', (e) => { if (e.key === 'Enter') validateAccess(); });
+document.getElementById('email-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') validateAccess(); });
+
+function syncWithFirebase(userId) {
+  const nodeRef = userId ? `cahier_journal_data/${userId}` : 'cahier_journal_data';
+  db.ref(nodeRef).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      state = data; localStorage.setItem(KEY, JSON.stringify(state));
+      render(); setStatus('saved');
+    }
+  });
+}
+
+/* ============================================================
+   2. BASE DE CONNAISSANCES — PROGRAMME OFFICIEL (Algérie)
+   ============================================================ */
+const NIV_LABEL = {'1AS':'1re année secondaire (1AS)','2AS':'2e année secondaire (2AS)','3AS':'3e année secondaire (3AS)'};
+const FILIERES = {
+  '1AS':[{id:'1AS-L', label:'Tronc commun Lettres'},{id:'1AS-S', label:'Tronc commun Sciences et technologie'}],
+  '2AS':[{id:'2AS-LP', label:'Lettres et philosophie'},{id:'2AS-LE', label:'Langues étrangères'},{id:'2AS-SE', label:'Sciences expérimentales'},{id:'2AS-M',  label:'Mathématiques'},{id:'2AS-TM', label:'Techniques mathématiques'},{id:'2AS-GE', label:'Gestion et économie'}],
+  '3AS':[{id:'3AS-LE',  label:'Lettres et Langues étrangères (3LE)'},{id:'3AS-LPH', label:'Lettres et Philosophie (3LPH)'}],
+};
+
+function programKey(fid){
+  if(!fid) return '';
+  if(fid==='1AS-L') return '1AS-L';
+  if(fid==='1AS-S') return '1AS-S';
+  if(fid==='2AS-LP') return '2AS-LP';
+  if(fid==='2AS-LE') return '2AS-LE';
+  if(['2AS-SE','2AS-M','2AS-TM','2AS-GE'].includes(fid)) return '2AS-SCI';
+  if(fid.startsWith('3AS')) return '3AS';
+  return '';
+}
+
+const PROGRAMS = {
+  '1AS-L':[{n:1,titre:"Réaliser une campagne d'information sur un thème scientifique...",objets:[{oe:"La vulgarisation de l'information scientifique",sequences:["Produire un texte de vulgarisation à partir d'informations données ou recueillies."]},{oe:"L'interview",sequences:["Produire un questionnaire pertinent en vue de s'informer sur un thème scientifique."]}]},{n:2,titre:"Rédiger une lettre ouverte à une autorité compétente...",objets:[{oe:"Le discours argumentatif",sequences:["Produire un texte argumentatif pour défendre une opinion."]},{oe:"La lettre ouverte",sequences:["Produire une lettre ouverte."]}]},{n:3,titre:"Écrire une courte biographie romancée...",objets:[{oe:"Le fait divers",sequences:["Produire un fait divers pour raconter un événement réel."]},{oe:"La nouvelle réaliste",sequences:["Produire un récit vraisemblable."]}]}],
+  '1AS-S':[{n:1,titre:"Réaliser une campagne d'information sur un thème scientifique...",objets:[{oe:"Les textes de vulgarisation de l'information scientifique",sequences:["Produire un texte de vulgarisation scientifique..."]},{oe:"L'interview",sequences:["Produire un questionnaire pertinent..."]}]},{n:2,titre:"Rédiger une lettre ouverte à une autorité compétente...",objets:[{oe:"Le discours argumentatif",sequences:["Produire un texte argumentatif..."]},{oe:"La lettre ouverte",sequences:["Produire une lettre ouverte."]}]},{n:3,titre:"Écrire une courte biographie romancée...",objets:[{oe:"La nouvelle réaliste",sequences:["Produire un récit vraisemblable."]}]}],
+  '2AS-LP':[{n:1,titre:"Concevoir et réaliser un dossier documentaire...",objets:[{oe:"Le discours objectivé",sequences:["Produire un texte pour présenter...","Produire un texte pour démontrer..."]}]},{n:2,titre:"Produire une petite pièce théâtrale...",objets:[{oe:"Le discours théâtral",sequences:["Produire un court texte théâtral..."]},{oe:"Le plaidoyer et le réquisitoire",sequences:["Produire un discours pour plaider...","Produire un texte pour dénoncer..."]}]},{n:3,titre:"Constituer un recueil de nouvelles...",objets:[{oe:"La nouvelle d'anticipation",sequences:["Produire un récit d'anticipation."]},{oe:"Le reportage touristique et le récit de voyage",sequences:["Produire un reportage touristique..."]}]}],
+  '2AS-LE':[{n:1,titre:"Concevoir et réaliser un dossier documentaire...",objets:[{oe:"Le discours objectivé",sequences:["Produire un texte pour présenter...","Produire un texte pour démontrer..."]}]},{n:2,titre:"Produire une petite pièce théâtrale...",objets:[{oe:"Le discours théâtral",sequences:["Produire un court texte théâtral..."]},{oe:"Le plaidoyer et le réquisitoire",sequences:["Produire un discours pour plaider...","Produire un texte pour dénoncer..."]}]},{n:3,titre:"Constituer un recueil de nouvelles...",objets:[{oe:"La nouvelle d'anticipation",sequences:["Produire un récit d'anticipation."]},{oe:"Le reportage touristique et le récit de voyage",sequences:["Produire un reportage touristique..."]}]}],
+  '2AS-SCI':[{n:1,titre:"Concevoir et réaliser un dossier documentaire...",objets:[{oe:"Le discours objectivé",sequences:["Produire un texte pour présenter...","Produire un texte pour démontrer..."]}]},{n:2,titre:"Produire une petite pièce théâtrale...",objets:[{oe:"Le plaidoyer et le réquisitoire",sequences:["Produire un discours pour plaider...","Produire un texte pour dénoncer..."]}]},{n:3,titre:"Constituer un recueil de nouvelles...",objets:[{oe:"La nouvelle d'anticipation",sequences:["Produire un récit d'anticipation."]},{oe:"Le reportage touristique et le récit de voyage",sequences:["Produire un reportage touristique..."]}]}],
+  '3AS':[{n:1,titre:"Dans le cadre de la commémoration...",objets:[{oe:"Textes et documents d'histoire",sequences:["Produire un texte pour informer d'un fait d'histoire...","Produire un texte pour présenter un fait d'histoire..."]}]},{n:2,titre:"Organiser un débat en classe...",objets:[{oe:"Le débat d'idées",sequences:["Produire un texte pour convaincre ou persuader...","Produire un texte pour concéder et réfuter."]}]},{n:3,titre:"Dans le cadre d'une journée citoyenne...",objets:[{oe:"L'appel",sequences:["Produire un texte pour inciter le destinataire à agir."]}]},{n:4,titre:"Réaliser un recueil de nouvelles fantastiques...",objets:[{oe:"La nouvelle fantastique",sequences:["Produire un récit fantastique."]}]}],
+};
+
+/* ============================================================
+   3. TYPES DE SÉANCE + SUGGESTIONS INTELLIGENTES
+   ============================================================ */
+const SEANCES = {
+  "Lancement / négociation du projet":{competences:["Mobiliser ses ressources pour s'engager dans un projet."],objectifs:["Présenter et négocier le projet avec les apprenants."],supports:["Intitulé du projet, tableau."],observations:["Bonne adhésion des apprenants au projet."]},
+  "Évaluation diagnostique":{competences:["Mobiliser ses acquis antérieurs."],objectifs:["Évaluer les prérequis liés à « {OE} »."],supports:["Test / questionnaire diagnostique."],observations:["Prérequis globalement maîtrisés."]},
+  "Mise en place de la séquence":{competences:["Comprendre l'objectif de la séquence."],objectifs:["Présenter les objectifs de la séquence liée à « {OE} »."],supports:["Tableau, cahier."],observations:["Objectifs de la séquence explicités."]},
+  "Compréhension de l'oral":{competences:["Comprendre et interpréter des messages oraux."],objectifs:["Écouter et comprendre un support oral relevant de « {OE} »."],supports:["Support audio / vidéo."],observations:["Bonne compréhension du support oral."]},
+  "Production orale":{competences:["Produire des messages oraux cohérents."],objectifs:["S'exprimer oralement sur un thème lié à « {OE} »."],supports:["Images, sujet d'expression."],observations:["Bonne implication du groupe à l'oral."]},
+  "Compréhension de l'écrit":{competences:["Comprendre et interpréter des textes écrits variés."],objectifs:["Lire et comprendre un texte relevant de « {OE} »."],supports:["Texte support du manuel scolaire."],observations:["Bonne compréhension globale du texte."]},
+  "Lecture entraînement":{competences:["Lire de manière fluide et expressive."],objectifs:["Lire un texte support de manière fluide."],supports:["Texte support, manuel scolaire."],observations:["Lecture fluide pour la majorité du groupe."]},
+  "Points de langue":{competences:["Mobiliser des ressources linguistiques au service du sens."],objectifs:["Identifier et employer un fait de langue au service de « {OE} »."],supports:["Corpus de phrases, manuel."],observations:["Notion globalement acquise."]},
+  "Préparation à l'écrit":{competences:["Préparer une production écrite."],objectifs:["Analyser la consigne et le sujet de production."],supports:["Sujet de production, grille critériée."],observations:["Consigne bien comprise."]},
+  "Production écrite":{competences:["Produire un écrit en respectant la situation de communication."],objectifs:["Rédiger un texte relevant de « {OE} » en respectant la consigne."],supports:["Sujet de production, grille d'évaluation."],observations:["Les objectifs de la séance sont globalement atteints."]},
+  "Compte rendu de la production écrite":{competences:["S'auto-évaluer et améliorer sa production."],objectifs:["Analyser les erreurs récurrentes des productions."],supports:["Copies des apprenants, grille critériée."],observations:["Nette amélioration après réécriture."]},
+  "Évaluation (bilan de séquence)":{competences:["Mobiliser les acquis dans une situation d'intégration."],objectifs:["Évaluer les acquis de la séquence liés à « {OE} »."],supports:["Sujet d'évaluation, grille."],observations:["Les objectifs de la séquence sont globalement atteints."]},
+  "Remédiation":{competences:["Surmonter ses difficultés d'apprentissage."],objectifs:["Remédier aux difficultés repérées en « {OE} »."],supports:["Fiche de remédiation, exercices ciblés."],observations:["Difficultés en partie levées."]},
+  "Clôture / compte rendu du projet":{competences:["Présenter et valoriser un travail de projet."],objectifs:["Présenter le produit final du projet."],supports:["Productions finales, affichage."],observations:["Projet mené à terme, produit final présenté."]}
+};
+const GENERIC={competences:["Mobiliser ses ressources."],objectifs:["Atteindre l'objectif d'apprentissage."],supports:["Manuel scolaire."],observations:["Séance déroulée dans de bonnes conditions."]};
+const HEURE_SLOTS=["08:00 – 09:00","09:00 – 10:00","10:00 – 11:00","11:00 – 12:00","13:00 – 14:00","14:00 – 15:00","15:00 – 16:00","16:00 – 17:00"];
+const DUREE_OPTS=["1 h","2 h","3 h"];
+const GROUPE_OPTS=["Groupe 1","Groupe 2","Groupe 3","Groupe 4"];
+
+function fillTpl(arr,oe){const rep=oe?("« "+oe+" »"):"l'objet d'étude";return arr.map(t=>t.replace(/« \{OE\} »/g,rep).replace(/\{OE\}/g, oe||"l'objet d'étude"));}
+function suggestFor(seance,oe){const b=SEANCES[seance]||GENERIC;return {competences:fillTpl(b.competences,oe),objectifs:fillTpl(b.objectifs,oe),supports:fillTpl(b.supports,oe),observations:fillTpl(b.observations,oe)};}
+
+/* ============================================================
+   4. ÉTAT & PERSISTANCE
+   ============================================================ */
+const KEY='cahier-journal-fle-v2';
+const $=(s,r=document)=>r.querySelector(s);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const todayISO=()=>new Date().toISOString().slice(0,10);
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function makeRow(){return {id:uid(),heure:'',classe:'',activites:'',remarques:'',details:{niveau:'',filiere:'',groupe:'',duree:'',projet:'',objet:'',sequence:'',seance:'',competence:'',objectif:'',supports:'',remarques:'',_auto:{}}};}
+function makeDay(d){return {id:uid(),date:d||todayISO(),rows:[makeRow()],bilan:''};}
+function defaultState(){return {schoolYear:'2026 / 2027',days:[makeDay(todayISO())]};}
+
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY))||defaultState();}catch(e){state=defaultState();}
+if(!state.days) state.days=[];
+
+let saveTimer=null;
+function markDirty(){setStatus('dirty');clearTimeout(saveTimer);saveTimer=setTimeout(persist,600);}
+function persist(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(state));
+    const user = auth.currentUser;
+    const nodeRef = user ? `cahier_journal_data/${user.uid}` : 'cahier_journal_data';
+    db.ref(nodeRef).set(state).then(() => { setStatus('saved'); }).catch(err => { setStatus('saved','Enregistré localement'); });
+  }catch(e){setStatus('saved','Session en cours');}
+}
+function setStatus(kind,label){const el=$('#status');el.className='status '+(kind==='dirty'?'dirty':'saved');$('#statusTxt').textContent=label||(kind==='dirty'?'Modification…':'Enregistré');}
+
+const findDay=id=>state.days.find(d=>d.id===id);
+const findRow=(dI,rI)=>{const d=findDay(dI);return d&&d.rows.find(r=>r.id===rI);};
+
+/* ============================================================
+   5. COMPOSANT « COMBO » 
+   ============================================================ */
+function optTag(v,sel){return `<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v)}</option>`;}
+function combo({attrs,value,options,multiline,ph}){
+  value=value||''; const known=options.includes(value); const isCustom=value!=='' && !known; const sel=isCustom?'__autre__':value;
+  const custom=multiline ? `<textarea class="cust" ${attrs} data-role="cust" rows="2" placeholder="${esc(ph||'Saisie personnalisée…')}" ${isCustom?'':'hidden'}>${esc(isCustom?value:'')}</textarea>` : `<input class="cust" ${attrs} data-role="cust" placeholder="${esc(ph||'Saisie personnalisée…')}" value="${esc(isCustom?value:'')}" ${isCustom?'':'hidden'}>`;
+  return `<div class="combo"><select class="sel" ${attrs} data-role="sel" required><option value="" ${sel===''?'selected':''} disabled hidden>${esc(ph||'— choisir —')}</option>${options.map(o=>optTag(o,sel)).join('')}<option value="__autre__" ${sel==='__autre__'?'selected':''}>✎ Autre / saisie personnalisée…</option></select>${custom}</div>`;
+}
+function pick(attrs,value,items,ph){return `<select class="sel" ${attrs} data-role="sel" required><option value="" ${!value?'selected':''} disabled hidden>${esc(ph)}</option>`+items.map(o=>`<option value="${esc(o.value)}" ${o.value===value?'selected':''}>${esc(o.label)}</option>`).join('')+`</select>`;}
+function classeSelect(attrs,value){
+  let g='';
+  for(const niv of ['1AS','2AS','3AS']){g+=`<optgroup label="${NIV_LABEL[niv]}">`+FILIERES[niv].map(f=>`<option value="${f.id}" ${f.id===value?'selected':''}>${esc(niv+' · '+f.label)}</option>`).join('')+`</optgroup>`;}
+  return `<select class="sel" ${attrs} data-role="selc"><option value="" ${!value?'selected':''} disabled hidden>— Niveau · filière —</option>${g}</select>`;
+}
+const classeLabel=id=>{if(!id)return'';const niv=id.split('-')[0];const f=(FILIERES[niv]||[]).find(x=>x.id===id);return f?niv+' — '+f.label:id;};
+
+/* ============================================================
+   ASSISTANT BILAN
+   ============================================================ */
+function getBilanSuggestions(d) {
+  const acts = d.rows.map(r => r.activites || r.details.seance || '');
+  const cats = {
+    "✓ Réussites": ["Les objectifs de la journée sont globalement atteints.", "Bonne implication générale du groupe."],
+    "⚠ Difficultés": ["Le temps consacré aux activités était insuffisant."],
+    "↻ À consolider": ["Certaines notions doivent être consolidées en remédiation."]
+  };
+  if(acts.some(a => a.includes("Production orale"))) cats["✓ Réussites"].push("La participation orale est satisfaisante.");
+  return cats;
+}
+
+/* ============================================================
+   6. RENDU DU TABLEAU ET APERÇU UNIQUE
+   ============================================================ */
+const daysEl=$('#days');
+
+function rowHTML(d,r){
+  const da=`data-day="${d.id}" data-row="${r.id}"`;
+  const remObs=suggestFor(r.details.seance,r.details.objet).observations;
+  const on=['projet','seance','objectif','competence','supports'].some(k=>r.details[k]&&r.details[k].trim());
+  const chip=on?(r.details.seance||r.details.projet||'Fiche renseignée'):'Ouvrir l\'assistant : projet, séquence...';
+  return `<tr>
+    <td class="col-heure" data-label="Heure">${combo({attrs:`${da} data-field="heure"`,value:r.heure,options:HEURE_SLOTS,ph:'— créneau —'})}</td>
+    <td class="col-classe" data-label="Classe">${classeSelect(`${da} data-field="classe"`,r.classe)}</td>
+    <td class="col-acts" data-label="Activités pédagogiques">
+      ${combo({attrs:`${da} data-field="activites"`,value:r.activites,options:Object.keys(SEANCES),multiline:true,ph:'— type de séance —'})}
+      <button class="detail-badge ${on?'on':''}" data-action="details" ${da}><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>${esc(chip)}</button>
+    </td>
+    <td class="col-remarques" data-label="Remarques">${combo({attrs:`${da} data-field="remarques"`,value:r.remarques,options:remObs,multiline:true,ph:'— observation —'})}</td>
+    <td class="col-tools" data-label="">
+      <span class="row-tools">
+        <button class="tool gear" title="Assistant / détails" data-action="details" ${da}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 16 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+        <button class="tool" title="Supprimer la ligne" data-action="del-row" ${da}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+      </span>
+    </td>
+  </tr>`;
+}
+
+function dayHTML(d){
+  const suggs = getBilanSuggestions(d);
+  const suggOpts = Object.keys(suggs).map(k => `<optgroup label="${k}">${suggs[k].map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}</optgroup>`).join('');
+  return `<section class="day">
+    <div class="day-head">
+      <div class="day-date"><span class="lbl">Journée du</span>
+        <input type="date" data-day="${d.id}" data-field="date" value="${esc(d.date)}" aria-label="Date"></div>
+      <div class="day-actions">
+        <button class="btn blue sm" data-action="preview-day" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span class="hid-mob">Aperçu du jour</span></button>
+        <button class="btn ghost sm" data-action="add-row" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="hid-mob">Ajouter séance</span></button>
+        <button class="btn ghost sm" data-action="dup-day" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="hid-mob">Dupliquer</span></button>
+        <button class="btn ghost sm" data-action="del-day" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg><span class="hid-mob">Supprimer</span></button>
+      </div>
+    </div>
+    <div class="table-wrap"><table class="grid">
+      <thead><tr>
+        <th><span class="th-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></svg>Heure</span></th>
+        <th><span class="th-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 20h18" stroke-linecap="round"/></svg>Classe</span></th>
+        <th><span class="th-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Activités pédagogiques</span></th>
+        <th><span class="th-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z" stroke-linejoin="round"/></svg>Remarques</span></th>
+        <th></th>
+      </tr></thead>
+      <tbody>${d.rows.map(r=>rowHTML(d,r)).join('')}</tbody>
+    </table></div>
+    <div class="add-row"><button class="btn ghost sm" style="width:100%" data-action="add-row" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Ajouter une séance</button></div>
+    <details class="bilan" ${d.bilan?'open':''}><summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg> Bilan de la journée · Notes</summary>
+      <div class="sugg-bar">
+        <select class="sel" data-sugg-select="${d.id}"><option value="" disabled selected>✨ Suggestions de bilan...</option>${suggOpts}</select>
+        <button class="btn blue sm" data-action="add-sugg" data-day="${d.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <textarea data-day="${d.id}" data-field="bilan" placeholder="Saisissez votre propre bilan ici...">${esc(d.bilan)}</textarea>
+    </details>
+  </section>`;
+}
+
+function render(){
+  $('#year').value=state.schoolYear;
+  if(!state.days || !state.days.length){
+    daysEl.innerHTML=`<div class="empty"><h2>Bonjour !</h2><p>Aucune journée pour l'instant. Créez-en une pour commencer.</p>
+      <p style="margin-top:16px"><button class="btn primary" data-action="add-day"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Créer une journée</button></p></div>`;
+    return;
+  }
+  daysEl.innerHTML=state.days.map(dayHTML).join('');
+}
+
+/* ============================================================
+   GÉNÉRATEUR DE L'APERÇU / CAHIER JOURNAL 
+   ============================================================ */
+function formatDayDate(isoDate) {
+  try { return new Intl.DateTimeFormat('fr-DZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(isoDate)); } 
+  catch(e) { return isoDate; }
+}
+const val = (v) => v ? esc(v) : '<span class="doc-empty-val">..................................</span>';
+
+function renderPreview(daysToRender) {
+  let validDays = (daysToRender || []).filter(d => d && d.id);
+  if (!validDays.length) { toast('Aucune journée à afficher', 'info'); return; }
+
+  let html = '';
+  validDays.forEach(d => {
+    let dateStr = formatDayDate(d.date);
+    dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+    let sortedRows = [...d.rows].sort((a,b) => (a.heure||'').localeCompare(b.heure||''));
+
+    let rowsHtml = sortedRows.map(r => {
+      let det = r.details || {};
+      let classe = classeLabel(r.classe) || classeLabel(det.filiere);
+      return `<div class="doc-session">
+          <div class="doc-time">${esc(r.heure || 'Heure non définie')}</div>
+          <div class="doc-grid-2">
+            <div class="doc-item"><strong>Classe :</strong> ${val(classe)}</div>
+            <div class="doc-item"><strong>Filière :</strong> ${val(classeLabel(det.filiere))}</div>
+            <div class="doc-item"><strong>Groupe :</strong> ${val(det.groupe)}</div>
+            <div class="doc-item"><strong>Durée :</strong> ${val(det.duree)}</div>
+          </div>
+          <h4 class="doc-section-title">Progression — Programme officiel</h4>
+          <div class="doc-grid-1">
+            <div class="doc-item"><strong>Projet :</strong> ${val(det.projet)}</div>
+            <div class="doc-item"><strong>Objet d'étude :</strong> ${val(det.objet)}</div>
+            <div class="doc-item"><strong>Séquence :</strong> ${val(det.sequence)}</div>
+            <div class="doc-item"><strong>Séance / activité :</strong> ${val(det.seance || r.activites)}</div>
+          </div>
+          <h4 class="doc-section-title">Contenu pédagogique</h4>
+          <div class="doc-grid-1">
+            <div class="doc-item"><strong>Compétence visée :</strong> ${val(det.competence)}</div>
+            <div class="doc-item"><strong>Objectif d'apprentissage :</strong> ${val(det.objectif)}</div>
+            <div class="doc-item"><strong>Supports :</strong> ${val(det.supports)}</div>
+          </div>
+          <h4 class="doc-section-title">Remarques / Observations</h4>
+          <div class="doc-block">${val(r.remarques || det.remarques)}</div>
+        </div>`;
+    }).join('');
+
+    let bilanHtml = d.bilan ? `<div class="doc-bilan">
+        <div class="doc-bilan-title"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Bilan de la journée</div>
+        <div class="doc-item">${esc(d.bilan).replace(/\n/g, '<br>')}</div>
+      </div>` : '';
+
+    html += `<div class="doc-page">
+        <div class="doc-header">
+          <div class="doc-title-wrapper">
+            <svg class="doc-decor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V12M12 12C10 8 7 6 5 5c3 1 5 4 7 7zm0 0c2-4 5-6 7-7-3 1-5 4-7 7zM12 12c-2 2-4 4-6 4 2-1 4-3 6-4zm0 0c2 2 4 4 6 4-2-1-4-3-6-4z"/></svg>
+            <h2 class="doc-title">Cahier Journal <span class="doc-subtitle">FLE</span></h2>
+          </div>
+          <div class="doc-divider"></div>
+          <div class="doc-meta">Journée du : ${dateStr}</div>
+        </div>
+        ${rowsHtml}${bilanHtml}
+      </div>`;
+  });
+
+  $('#preview-content').innerHTML = html;
+  $('#app-view').style.display = 'none';
+  $('#preview-mode').style.display = 'block';
+  window.scrollTo(0,0);
+}
+
+function closePreview() {
+  $('#preview-mode').style.display = 'none';
+  $('#app-view').style.display = 'block';
+}
+
+/* ============================================================
+   7. ÉDITION DANS LE TABLEAU
+   ============================================================ */
+function setRowField(dI,rI,f,v){const r=findRow(dI,rI);if(r)r[f]=v;}
+function onFieldEdit(e){
+  const t=e.target;if(t.dataset.role)return;
+  if(t.id==='year'){state.schoolYear=t.value;markDirty();return;}
+  const {day,row,field}=t.dataset;if(!field)return;
+  if(row){setRowField(day,row,field,t.value);}else if(day){const d=findDay(day);if(d)d[field]=t.value;}
+  markDirty();
+}
+daysEl.addEventListener('change',e=>{
+  const c=e.target.closest('[data-role="selc"]'); if(c){setRowField(c.dataset.day,c.dataset.row,'classe',c.value);markDirty();return;}
+  const s=e.target.closest('[data-role="sel"]'); if(s){rowComboSelect(s);return;}
+  onFieldEdit(e);
+});
+daysEl.addEventListener('input',e=>{
+  const cu=e.target.closest('[data-role="cust"]');
+  if(cu){setRowField(cu.dataset.day,cu.dataset.row,cu.dataset.field,cu.value); if(cu.dataset.field==='activites'){const r=findRow(cu.dataset.day,cu.dataset.row);if(r)r.details.seance='';} markDirty();return;}
+  if(e.target.closest('[data-role="sel"]'))return;
+  onFieldEdit(e);
+});
+function rowComboSelect(sel){
+  const box=sel.closest('.combo');const cust=box.querySelector('[data-role="cust"]');
+  const {day,row,field}=sel.dataset;
+  if(sel.value==='__autre__'){
+    if(cust){cust.hidden=false;setRowField(day,row,field,cust.value||'');cust.focus();}
+    if(field==='activites'){const r=findRow(day,row);if(r)r.details.seance='';}
+    markDirty();return;
+  }
+  if(cust)cust.hidden=true;
+  setRowField(day,row,field,sel.value);markDirty();
+  if(field==='activites'){const r=findRow(day,row);if(r)r.details.seance=SEANCES[sel.value]?sel.value:'';render();return;}
+  render();
+}
+
+/* ============================================================
+   8. ACTIONS GLOBALES
+   ============================================================ */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-action]');if(!b)return;
+  const {action,day,row}=b.dataset;
+  switch(action){
+    case 'add-day':addDay();break;
+    case 'del-day':delDay(day);break;
+    case 'dup-day':dupDay(day);break;
+    case 'add-row':addRow(day);break;
+    case 'del-row':delRow(day,row);break;
+    case 'details':openModal(day,row);break;
+    case 'save':persist();toast('Cahier enregistré','ok');break;
+    case 'preview-all': renderPreview(state.days); break;
+    case 'preview-day': const d=findDay(day);if(d)renderPreview([d]); break;
+    case 'close-preview': closePreview(); break;
+    case 'print-preview': window.print(); break;
+    case 'pdf-preview': exportPDF(); break;
+    case 'add-sugg':
+      const sel = $(`[data-sugg-select="${day}"]`);
+      if(sel && sel.value) {
+        const txta = $(`textarea[data-field="bilan"][data-day="${day}"]`);
+        if(txta) {
+          const val = sel.value; const current = txta.value.trim();
+          txta.value = current ? current + '\n' + val : val;
+          const dObj = findDay(day); if(dObj) dObj.bilan = txta.value;
+          markDirty(); sel.selectedIndex = 0; txta.focus();
+        }
+      }
+      break;
+    case 'close-modal':modal.close();break;
+    case 'save-modal':saveModal();break;
+  }
+});
+
+function addDay(){
+  if(!state.days) state.days = [];
+  const last=state.days[state.days.length-1];const base=last?last.date:todayISO();
+  const nx=new Date(base+'T00:00:00');nx.setDate(nx.getDate()+1);
+  state.days.push(makeDay(nx.toISOString().slice(0,10)));render();persist();
+  setTimeout(() => { daysEl.lastElementChild?.scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+}
+function delDay(id){if(!confirm('Supprimer cette journée et toutes ses séances ?'))return;state.days=state.days.filter(d=>d.id!==id);render();persist();}
+function dupDay(id){const d=findDay(id);if(!d)return;const c=JSON.parse(JSON.stringify(d));c.id=uid();c.rows.forEach(r=>r.id=uid());state.days.splice(state.days.indexOf(d)+1,0,c);render();persist();toast('Journée dupliquée','ok');}
+function addRow(dI){const d=findDay(dI);if(!d)return;d.rows.push(makeRow());render();persist();}
+function delRow(dI,rI){const d=findDay(dI);if(!d)return;d.rows=d.rows.filter(r=>r.id!==rI);if(!d.rows.length)d.rows.push(makeRow());render();persist();}
+
+/* ============================================================
+   9. MODALE — ASSISTANT DE PRÉPARATION
+   ============================================================ */
+const modal=$('#modal'),modalBody=$('#modalBody');
+let mDay=null,mRow=null,draft=null;
+const SMART=['competence','objectif','supports','remarques'];
+
+const getProgram=()=>PROGRAMS[programKey(draft.filiere)]||[];
+const projLabel=p=>`Projet ${p.n} — ${p.titre}`;
+const getProjet=()=>getProgram().find(p=>projLabel(p)===draft.projet);
+const getObjets=()=>{const p=getProjet();return p?p.objets:[];};
+const getObjet=()=>getObjets().find(o=>o.oe===draft.objet);
+const getSequences=()=>{const o=getObjet();return o?o.sequences:[];};
+
+function autofill(){
+  const s=suggestFor(draft.seance,draft.objet);
+  const map={competence:'competences',objectif:'objectifs',supports:'supports',remarques:'observations'};
+  for(const f of SMART){
+    const first=(s[map[f]]||[])[0]||'';
+    if(!draft[f]||draft._auto[f]){draft[f]=first;draft._auto[f]=true;}
+  }
+}
+function openModal(dI,rI){
+  const r=findRow(dI,rI);if(!r)return;mDay=dI;mRow=rI;
+  draft=JSON.parse(JSON.stringify(r.details));draft._auto=draft._auto||{};
+  if(r.classe&&!draft.filiere)draft.filiere=r.classe;
+  if(draft.filiere&&!draft.niveau)draft.niveau=draft.filiere.split('-')[0];
+  if(r.activites&&!draft.seance&&SEANCES[r.activites])draft.seance=r.activites;
+  renderModal();modal.showModal();
+}
+function renderModal(){
+  const niveau=draft.niveau||'';
+  const filItems=(FILIERES[niveau]||[]).map(f=>({value:f.id,label:f.label}));
+  const projOpts=getProgram().map(projLabel);
+  const objOpts=getObjets().map(o=>o.oe);
+  const seqOpts=getSequences();
+  const s=suggestFor(draft.seance,draft.objet);
+  const md=f=>`data-mfield="${f}"`;
+  modalBody.innerHTML=`
+    <div class="msec"><h4>Classe &amp; organisation<span class="ln"></span></h4>
+      <div class="mgrid">
+        <div class="fld"><label>Niveau</label>${pick(md('niveau'),niveau,[{value:'1AS',label:'1re année (1AS)'},{value:'2AS',label:'2e année (2AS)'},{value:'3AS',label:'3e année (3AS)'}],'— niveau —')}</div>
+        <div class="fld"><label>Filière</label>${pick(md('filiere'),draft.filiere||'',filItems,niveau?'— filière —':'Choisir d\'abord le niveau')}</div>
+        <div class="fld"><label>Classe / groupe</label>${combo({attrs:md('groupe'),value:draft.groupe,options:GROUPE_OPTS,ph:'— groupe —'})}</div>
+        <div class="fld"><label>Durée</label>${combo({attrs:md('duree'),value:draft.duree,options:DUREE_OPTS,ph:'— durée —'})}</div>
+      </div>
+    </div>
+    <div class="msec"><h4>Progression — programme officiel<span class="ln"></span></h4>
+      <div class="mgrid">
+        <div class="fld wide"><label>Projet</label>${combo({attrs:md('projet'),value:draft.projet,options:projOpts,ph:draft.filiere?'— projet —':'Choisir d\'abord la classe'})}</div>
+        <div class="fld"><label>Objet d'étude</label>${combo({attrs:md('objet'),value:draft.objet,options:objOpts,ph:draft.projet?'— objet d\'étude —':'Choisir d\'abord le projet'})}</div>
+        <div class="fld"><label>Séquence</label>${combo({attrs:md('sequence'),value:draft.sequence,options:seqOpts,multiline:true,ph:draft.objet?'— séquence —':'Choisir d\'abord l\'objet'})}</div>
+        <div class="fld wide"><label>Séance / activité</label>${combo({attrs:md('seance'),value:draft.seance,options:Object.keys(SEANCES),ph:'— type de séance —'})}</div>
+      </div>
+    </div>
+    <div class="msec"><h4>Contenu pédagogique — suggestions ✨<span class="ln"></span></h4>
+      <div class="mgrid">
+        <div class="fld wide"><label>Compétence visée</label>${combo({attrs:md('competence'),value:draft.competence,options:s.competences,multiline:true,ph:'— compétence —'})}</div>
+        <div class="fld wide"><label>Objectif d'apprentissage</label>${combo({attrs:md('objectif'),value:draft.objectif,options:s.objectifs,multiline:true,ph:'— objectif —'})}</div>
+        <div class="fld wide"><label>Supports</label>${combo({attrs:md('supports'),value:draft.supports,options:s.supports,multiline:true,ph:'— supports —'})}</div>
+        <div class="fld wide"><label>Remarques / Observations</label>${combo({attrs:md('remarques'),value:draft.remarques,options:s.observations,multiline:true,ph:'— observation —'})}</div>
+      </div>
+    </div>`;
+}
+modal.addEventListener('change',e=>{
+  const sel=e.target.closest('[data-role="sel"]');if(!sel)return;
+  const f=sel.dataset.mfield;
+  if(sel.value==='__autre__'){
+    const cust=sel.closest('.combo').querySelector('[data-role="cust"]');
+    if(cust){cust.hidden=false;draft[f]=cust.value||'';cust.focus();}
+    if(SMART.includes(f))draft._auto[f]=false;return;
+  }
+  draft[f]=sel.value;
+  if(f==='niveau'){draft.filiere='';draft.projet='';draft.objet='';draft.sequence='';}
+  else if(f==='filiere'){draft.projet='';draft.objet='';draft.sequence='';}
+  else if(f==='projet'){draft.objet='';draft.sequence='';}
+  else if(f==='objet'){draft.sequence='';}
+  if(SMART.includes(f))draft._auto[f]=false;
+  if(['niveau','filiere','projet','objet','seance'].includes(f))autofill();
+  renderModal();
+});
+modal.addEventListener('input',e=>{
+  const cu=e.target.closest('[data-role="cust"]');if(!cu)return;
+  const f=cu.dataset.mfield;draft[f]=cu.value;if(SMART.includes(f))draft._auto[f]=false;
+});
+modal.addEventListener('click',e=>{ 
+  if(e.target===modal){const b=modal.getBoundingClientRect();
+    if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)modal.close();}
+});
+function saveModal(){
+  const r=findRow(mDay,mRow);if(!r){modal.close();return;}
+  ['niveau','filiere','groupe','duree','projet','objet','sequence','seance','competence','objectif','supports','remarques'].forEach(k=>r.details[k]=draft[k]||'');
+  r.details._auto=draft._auto||{};
+  if(draft.filiere)r.classe=draft.filiere;
+  if(draft.seance)r.activites=draft.seance;
+  if(draft.remarques&&!r.remarques)r.remarques=draft.remarques;
+  modal.close();render();persist();toast('Fiche pédagogique enregistrée','ok');
+}
+
+/* ============================================================
+   10. IMPRESSION / PDF / TOAST
+   ============================================================ */
+function exportPDF(){
+  toast('Choisissez "Enregistrer au format PDF" dans l\'impression','info',3500);
+  setTimeout(()=>window.print(),800);
+}
+let toastTimer=null;
+function toast(msg,kind='ok',ms=2200){
+  const el=$('#toast');
+  const icon=kind==='info'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  el.innerHTML=icon+'<span>'+esc(msg)+'</span>';el.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+/* ---------- Démarrage ---------- */
+render();setStatus('saved');
+$('#year').addEventListener('input',onFieldEdit);
+</script>
+</body>
+</html>
